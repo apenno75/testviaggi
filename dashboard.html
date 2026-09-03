@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gestione Viaggi Camper - Dashboard (Costi, Mappa, Calendario)</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <style>
+    * { box-sizing: border-box; }
+    html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; max-width: 100vw; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1050px; margin: 15px auto; padding: 0 12px; background-color: #f4f6f8; color: #333; }
+    .card { background: white; padding: 16px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .hidden { display: none !important; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 13px; margin-bottom: 4px; font-weight: 600; color: #475569; }
+    input { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 6px; min-height: 42px; font-family: inherit; }
+    button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-primary { background: #0070f3; color: white; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-secondary { background: #64748b; color: white; }
+    .btn-warning { background: #d97706; color: white; }
+    .btn-info { background: #0284c7; color: white; }
+    .btn-purple { background: #8b5cf6; color: white; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+    .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    th { background: #f8fafc; color: #64748b; }
+    .flex { display: flex; gap: 10px; }
+    .flex-center { display: flex; justify-content: space-between; align-items: center; }
+    .error { color: #dc2626; font-size: 14px; margin-bottom: 10px; font-weight: bold; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 12px; }
+    .modal-content { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; position: relative; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; margin-top: 12px; }
+    .calendar-day-header { font-weight: bold; padding: 6px 2px; background: #f1f5f9; font-size: 11px; border-radius: 4px; color: #475569; }
+    .calendar-day { padding: 5px 2px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; min-height: 48px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+    .calendar-day.has-trip { font-weight: bold; cursor: pointer; border-width: 1.5px; }
+    .calendar-day .day-num { font-size: 12px; line-height: 1; }
+    .calendar-day .trip-initial { font-size: 11px; font-weight: 800; text-transform: uppercase; background: rgba(255, 255, 255, 0.55); padding: 1px 5px; border-radius: 3px; line-height: 2; margin-bottom: 2px; }
+    .calendar-tooltip { background: #0f172a; color: white; padding: 12px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-size: 12px; text-align: left; font-weight: normal; }
+    .calendar-tooltip h4 { margin: 0 0 6px 0; color: #38bdf8; font-size: 14px; }
+    .calendar-tooltip p { margin: 3px 0; }
+    .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; flex: 1; min-width: 110px; }
+    .stat-card .amount { font-size: 16px; font-weight: bold; color: #0284c7; margin-top: 4px; }
+    .map-full-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.95); z-index: 20000; overflow-y: auto; padding: 20px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    .map-full-overlay-content { position: relative; width: 100%; max-width: 600px; margin: 20px auto; background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .map-full-overlay-close { position: absolute; top: 10px; right: 15px; background: transparent; border: none; color: #b8253b; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; z-index: 2; }
+    .map-full-overlay-close:hover { color: #ffffff; }
+    @media (max-width: 768px) {
+      .header-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+      .header-actions button { width: 100%; font-size: 12px; padding: 8px; }
+      .app-header { flex-direction: column; align-items: flex-start; }
+    }	
+  </style>
+  <script>
+    // Forza il ricalcolo dello zoom/viewport della WebView ad ogni caricamento pagina,
+    // per evitare che la scala venga ereditata in modo errato dalla pagina precedente.
+    (function() {
+      var LOCKED = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
+      function resetViewportScale() {
+        var vp = document.querySelector('meta[name="viewport"]');
+        if (!vp) return;
+        vp.setAttribute('content', 'width=device-width, initial-scale=0.99, minimum-scale=0.99, maximum-scale=0.99, user-scalable=no');
+        window.requestAnimationFrame(function() {
+          vp.setAttribute('content', LOCKED);
+        });
+      }
+      window.addEventListener('pageshow', resetViewportScale);
+      document.addEventListener('DOMContentLoaded', resetViewportScale);
+      window.addEventListener('load', resetViewportScale);
+    })();
+  </script>
+</head>
+<body>
+
+  <div id="auth-section" class="card" style="max-width: 400px; margin: 30px auto;">
+    <h2 id="auth-title" style="margin-top:0;">Accedi</h2>
+    <div id="auth-error" class="error hidden"></div>
+    <form id="auth-form">
+      <div class="form-group">
+        <label for="auth-email">Email</label>
+        <input type="email" id="auth-email" required placeholder="inserisci@email.com">
+      </div>
+      <div class="form-group">
+        <label for="auth-password">Password</label>
+        <div style="position: relative; display: flex; align-items: center;">
+          <input type="password" id="auth-password" required minlength="6" placeholder="Almeno 6 caratteri" style="padding-right: 40px;">
+          <button type="button" id="toggle-password-btn" style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; min-height: auto; color: #64748b;">👁️</button>
+        </div>
+      </div>
+      <button type="submit" id="auth-submit-btn" class="btn-primary" style="width: 100%;">Accedi</button>
+    </form>
+  </div>
+
+  <div id="app-section" class="hidden">
+    <div class="app-header flex-center" style="margin-bottom: 16px;">
+      <div>
+        <h1 style="margin: 0; font-size: 22px;">🚐 Viaggi Camper</h1>
+        <small id="user-email-display" style="color: #64748b;"></small>
+      </div>
+      <div class="header-actions flex">
+        <button id="open-new-viaggio-btn" class="btn-primary">➕ Nuovo Viaggio</button>
+        <button id="open-viaggi-btn" class="btn-purple">📋 Elenco Viaggi</button>
+        <button id="open-all-luoghi-btn" class="btn-primary" style="background: #ec4899; color: white;">🌍 Elenco Luoghi</button>
+        <button id="open-summary-btn" class="btn-info">📊 Costi</button>
+        <button id="open-calendar-btn" class="btn-warning">📅 Calendario</button>
+        <button id="open-map-btn" class="btn-success">🗺️ Mappa Viaggi</button>
+        <button id="open-settings-btn" class="btn-secondary">⚙️ Settaggi</button>
+        <button id="open-all-campers-btn" class="btn-primary" style="background: #059669; color: white;">🚐 I Camper</button>
+        <button id="logout-btn" class="btn-danger">Logout</button>
+        <button id="open-help-btn" class="btn-warning" style="background: #eab308; color: white;">❓ Help</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="summary-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="flex-center">
+        <h2 style="margin:0; font-size: 18px;">📊 Riepilogo Costi</h2>
+        <button id="close-summary-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+      <div class="flex" style="margin: 15px 0; gap: 8px; flex-wrap: wrap;">
+        <div class="stat-card"><small>Camping</small><div class="amount" id="summary-total-camping">€ 0.00</div></div>
+        <div class="stat-card"><small>Costi Extra</small><div class="amount" id="summary-total-extra" style="color: #8b5cf6;">€ 0.00</div></div>
+        <div class="stat-card"><small>Carburante</small><div class="amount" id="summary-total-fuel">€ 0.00</div></div>
+        <div class="stat-card"><small>Pedaggi</small><div class="amount" id="summary-total-tolls">€ 0.00</div></div>
+        <div class="stat-card" style="background: #e0f2fe; border-color: #bae6fd;"><small style="color: #0369a1; font-weight: bold;">TOTALE SPESO</small><div class="amount" id="summary-grand-total" style="color: #0369a1; font-size: 18px;">€ 0.00</div></div>
+      </div>
+      <h3 style="font-size: 15px; margin-bottom: 5px;">Dettaglio Spese</h3>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Viaggio</th><th>Camping</th><th>Costi Extra</th><th>Carburante</th><th>Pedaggi</th><th>Totale</th></tr></thead>
+          <tbody id="summary-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="extra-detail-modal" class="modal-overlay hidden" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 750px;">
+      <div class="flex-center">
+        <h2 style="margin:0; font-size: 18px;" id="extra-detail-title">🔎 Dettaglio Costi Extra</h2>
+        <button id="close-extra-detail-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+      <div class="table-container" style="margin-top: 15px;">
+        <table>
+          <thead><tr><th>Costo (€)</th><th>Categoria</th><th>Nome</th><th>Luogo</th><th>Note</th></tr></thead>
+          <tbody id="extra-detail-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="fuel-detail-modal" class="modal-overlay hidden" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="flex-center">
+        <h2 style="margin:0; font-size: 18px;" id="fuel-detail-title">⛽ Dettaglio Carburante</h2>
+        <button id="close-fuel-detail-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+      <div class="table-container" style="margin-top: 15px;">
+        <table>
+          <thead><tr><th>Data</th><th>Costo (€)</th><th>Litri (L)</th></tr></thead>
+          <tbody id="fuel-detail-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="calendar-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="flex-center">
+        <h2 style="margin:0; font-size: 18px;">📅 Calendario Viaggi</h2>
+        <button id="close-calendar-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+	  <div class="flex-center" style="margin: 15px 0;">
+        <div class="flex" style="gap: 4px;">
+          <button id="prev-year-btn" class="btn-secondary btn-sm" title="Anno Precedente">&lt;&lt;</button>
+          <button id="prev-month-btn" class="btn-secondary btn-sm">&lt; Prec.</button>
+        </div>
+        <h3 id="calendar-month-year" style="margin:0; font-size: 15px; text-align: center;"></h3>
+        <div class="flex" style="gap: 4px;">
+          <button id="next-month-btn" class="btn-secondary btn-sm">Succ. &gt;</button>
+          <button id="next-year-btn" class="btn-secondary btn-sm" title="Anno Successivo">&gt;&gt;</button>
+        </div>
+      </div>
+      <div class="calendar-grid">
+        <div class="calendar-day-header">Lun</div><div class="calendar-day-header">Mar</div><div class="calendar-day-header">Mer</div><div class="calendar-day-header">Gio</div><div class="calendar-day-header">Ven</div><div class="calendar-day-header">Sab</div><div class="calendar-day-header">Dom</div>
+      </div>
+      <div id="calendar-days-container" class="calendar-grid"></div>
+    </div>
+  </div>
+
+  <div id="map-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+      <div class="flex-center" style="margin-bottom: 12px;">
+        <h2 style="margin:0; font-size: 18px;">🗺️ Mappa dei Luoghi Visitati</h2>
+        <button id="close-map-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+      <div id="map-container" style="width: 100%; height: 500px; border-radius: 8px; border: 1px solid #cbd5e1;"></div>
+    </div>
+  </div>
+  
+  <div id="help-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 450px; text-align: center;">
+      <div class="flex-center" style="margin-bottom: 12px;">
+        <h2 style="margin:0; font-size: 18px;">❓ Manuale Viaggi Camper</h2>
+        <button id="close-help-btn" class="btn-secondary btn-sm">Chiudi</button>
+      </div>
+      <p style="font-size: 14px; color: #475569; margin: 20px 0;">Premi il pulsante sottostante per aprire il manuale PDF a schermo intero</p>
+      <a href="https://apenno75.github.io/Gestione-viaggi/Manuale_Viaggi_Camper.pdf" target="_blank" class="btn-primary" style="display: inline-block; width: 100%; text-decoration: none; text-align: center; padding: 12px; margin-top: 10px;">📄 Apri PDF a Schermo Intero</a>
+    </div>
+  </div>
+
+  <script>
+    const { createClient } = window.supabase;
+    const SUPABASE_URL = 'https://erukzvrtjnvyzjvfuirn.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_FDhQ03affjzeyhCHuoKulg_Rp7PdyLM';
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const TRIP_COLORS = [
+      { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }, { bg: '#dcfce7', border: '#22c55e', text: '#15803d' },
+      { bg: '#fef3c7', border: '#f59e0b', text: '#b45309' }, { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' },
+      { bg: '#ffe4e6', border: '#f43f5e', text: '#be123c' }, { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
+      { bg: '#ccfbf1', border: '#14b8a6', text: '#0f766e' }, { bg: '#ffedd5', border: '#f97316', text: '#c2410c' }
+    ];
+
+    const authSection = document.getElementById('auth-section');
+    const appSection = document.getElementById('app-section');
+    const authForm = document.getElementById('auth-form');
+    const userEmailDisplay = document.getElementById('user-email-display');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    // Routing ad altre pagine
+    document.getElementById('open-new-viaggio-btn').addEventListener('click', () => window.location.href = 'index.html?open=new');
+    document.getElementById('open-viaggi-btn').addEventListener('click', () => window.location.href = 'index.html?open=list');
+    document.getElementById('open-all-luoghi-btn').addEventListener('click', () => window.location.href = 'index.html?open=luoghi');
+    document.getElementById('open-settings-btn').addEventListener('click', () => window.location.href = 'settaggi.html?open=settings');
+    document.getElementById('open-all-campers-btn').addEventListener('click', () => window.location.href = 'settaggi.html?open=campers');
+
+    const openSummaryBtn = document.getElementById('open-summary-btn');
+    const closeSummaryBtn = document.getElementById('close-summary-btn');
+    const summaryModal = document.getElementById('summary-modal');
+    const summaryTableBody = document.getElementById('summary-table-body');
+    const summaryTotalCamping = document.getElementById('summary-total-camping');
+    const summaryTotalExtra = document.getElementById('summary-total-extra');
+    const summaryTotalFuel = document.getElementById('summary-total-fuel');
+    const summaryTotalTolls = document.getElementById('summary-total-tolls');
+    const summaryGrandTotal = document.getElementById('summary-grand-total');
+
+    const extraDetailModal = document.getElementById('extra-detail-modal');
+    const extraDetailTitle = document.getElementById('extra-detail-title');
+    const extraDetailTableBody = document.getElementById('extra-detail-table-body');
+    const closeExtraDetailBtn = document.getElementById('close-extra-detail-btn');
+
+    const fuelDetailModal = document.getElementById('fuel-detail-modal');
+    const fuelDetailTitle = document.getElementById('fuel-detail-title');
+    const fuelDetailTableBody = document.getElementById('fuel-detail-table-body');
+    const closeFuelDetailBtn = document.getElementById('close-fuel-detail-btn');
+
+    const openCalendarBtn = document.getElementById('open-calendar-btn');
+    const closeCalendarBtn = document.getElementById('close-calendar-btn');
+    const calendarModal = document.getElementById('calendar-modal');
+    const calendarMonthYear = document.getElementById('calendar-month-year');
+    const calendarDaysContainer = document.getElementById('calendar-days-container');
+    const prevYearBtn = document.getElementById('prev-year-btn');
+    const prevMonthBtn = document.getElementById('prev-month-btn');
+    const nextMonthBtn = document.getElementById('next-month-btn');
+    const nextYearBtn = document.getElementById('next-year-btn');
+
+    const openMapBtn = document.getElementById('open-map-btn');
+    const closeMapBtn = document.getElementById('close-map-btn');
+    const mapModal = document.getElementById('map-modal');
+
+    const openHelpBtn = document.getElementById('open-help-btn');
+    const closeHelpBtn = document.getElementById('close-help-btn');
+    const helpModal = document.getElementById('help-modal');
+
+    let currentUser = null;
+    let viaggiList = [];
+    let currentCalendarDate = new Date();
+    let map = null;
+    let markersGroup = null;
+
+    function handleUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const open = params.get('open');
+      if (open === 'summary') openSummaryBtn.click();
+      if (open === 'calendar') openCalendarBtn.click();
+      if (open === 'map') openMapBtn.click();
+    }
+
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        currentUser = session.user; userEmailDisplay.textContent = `${currentUser.email}`;
+        authSection.classList.add('hidden'); appSection.classList.remove('hidden');
+        await fetchViaggi(); handleUrlParams();
+      } else {
+        currentUser = null; appSection.classList.add('hidden'); authSection.classList.remove('hidden');
+      }
+    });
+
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      await supabaseClient.auth.signInWithPassword({ email, password });
+    });
+    logoutBtn.addEventListener('click', () => supabaseClient.auth.signOut());
+    document.getElementById('toggle-password-btn')?.addEventListener('click', (e) => {
+      const input = document.getElementById('auth-password');
+      const isPwd = input.type === 'password';
+      input.type = isPwd ? 'text' : 'password';
+      e.target.textContent = isPwd ? '🙈' : '👁️';
+    });
+
+    openHelpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
+    closeHelpBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+
+    async function fetchViaggi() {
+      const { data } = await supabaseClient.from('viaggi').select('*, rifornimenti(*)').eq('user_id', currentUser.id).order('data_partenza', { ascending: false });
+      viaggiList = data || [];
+    }
+
+    function calculateNights(startStr, endStr) {
+      if (!startStr || !endStr) return 0;
+      const start = new Date(startStr); const end = new Date(endStr);
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    }
+
+    function getCampingTotalFromTrip(item) {
+      return (item.luoghi || []).reduce((tot, l) => tot + ((parseFloat(l.costo_giornaliero) || 0) * (parseInt(l.notti) || 0)), 0);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+    }
+    
+    function escapeHtml(unsafe) {
+      if (!unsafe) return '';
+      return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function renderStars(rating) { return '⭐'.repeat(parseInt(rating) || 0); }
+
+    function getTripTooltipHTML(tripItem) {
+      const notti = calculateNights(tripItem.data_partenza, tripItem.data_arrivo);
+      const camping = getCampingTotalFromTrip(tripItem);
+      const pedaggi = Number(tripItem.costo_pedaggi || 0);
+      const carburante = (tripItem.rifornimenti || []).reduce((s, r) => s + Number(r.costo_sostenuto || 0), 0);
+      let extraLuoghi = 0; (tripItem.luoghi || []).forEach(l => { (l.costi_extra || []).forEach(c => extraLuoghi += parseFloat(c.valore) || 0); });
+      const totale = camping + pedaggi + carburante + extraLuoghi;
+	  const ratingsText = (tripItem.luoghi || []).length > 0 ? tripItem.luoghi.map(l => { const campeggioNome = l.nome_campeggio ? ` (${escapeHtml(l.nome_campeggio)})` : ''; return `<span><strong>📍 ${escapeHtml(l.nome_luogo || 'Tappa')}:</strong> ${renderStars(l.rating_luogo || 3)} <BR>🏕️ ${campeggioNome} ${renderStars(l.rating_campeggio || 3)}</span>`; }).join('<br>') : `Rating ${renderStars(tripItem.rating_luogo || 3)} | 🏕️ ${renderStars(tripItem.rating_campeggio || 3)}`;
+      const imageHtml = tripItem.foto_copertina ? `<img src="${tripItem.foto_copertina}" style="width:100%; height:180px; object-fit:cover; border-radius:6px; margin-bottom:8px;">` : '';
+      return `
+        <div class="calendar-tooltip" style="box-shadow: none; padding: 4px;">
+          ${imageHtml}
+          <h4>📍 ${escapeHtml(tripItem.destinazione)}</h4>
+          <p>📅 <strong>Date:</strong> ${formatDate(tripItem.data_partenza)} - ${formatDate(tripItem.data_arrivo)} <strong>(${notti} notti)</strong></p>
+		  <p>📝 <strong>Note Viaggio:</strong> ${escapeHtml(tripItem.note_viaggio || tripItem.note)}</p>
+		  <p>---------------------------------------------------------------------------</p>
+          ${(tripItem.luoghi || []).length > 0 ? `<p font-size: 12px;>📌 <strong>Luoghi:</strong><BR> - ${tripItem.luoghi.map(l => escapeHtml(l.nome_luogo)).join('<BR>- ')}</p>` : ''}
+          <p font-size: 12px;>⭐ <strong>Valutazioni:</strong><br>${ratingsText}</p>
+		  <p font-size: 12px;>📝 <strong>Note Luoghi:</strong><BR> - ${tripItem.luoghi.map(l => escapeHtml(l.note_luogo)).join('<BR>- ')}</p> 
+		  <p>---------------------------------------------------------------------------</p>
+		  <p>🛣️ <strong>Chilometri:</strong> ${tripItem.chilometri} km</p>
+          <p>🏕️ <strong>Camping Totale:</strong> € ${camping.toFixed(2)}</p>
+          <p>💰 <strong>Costi Extra:</strong> € ${extraLuoghi.toFixed(2)}</p>
+          <p>💶 <strong>Pedaggi:</strong> € ${pedaggi.toFixed(2)}</p>
+          <p>⛽ <strong>Carburante:</strong> € ${carburante.toFixed(2)}</p>
+          <p style="margin-top:6px; border-top:1px solid #334155; padding-top:4px;"><strong>TOTALE: € ${totale.toFixed(2)}</strong></p>
+        </div>
+      `;
+    }
+
+    function getMapTooltipHTML(tripItem, user, ownerName) {
+		  const isOwner = (user && tripItem.user_id === user.id);
+		  const notti = calculateNights(tripItem.data_partenza, tripItem.data_arrivo);
+		  const camping = getCampingTotalFromTrip(tripItem);
+		  const pedaggi = Number(tripItem.costo_pedaggi || 0);
+		  const carburante = (tripItem.rifornimenti || []).length > 0 ? tripItem.rifornimenti.reduce((s, r) => s + Number(r.costo_sostenuto || 0), 0) : Number(tripItem.costo_carburante || 0);
+		  let extraLuoghi = 0; (tripItem.luoghi || []).forEach(l => { (l.costi_extra || []).forEach(c => extraLuoghi += parseFloat(c.valore) || 0); });
+		  const totale = camping + pedaggi + carburante + extraLuoghi;
+		  const ratingsText = (tripItem.luoghi || []).length > 0 ? tripItem.luoghi.map(l => { const campeggioNome = l.nome_campeggio ? ` (${escapeHtml(l.nome_campeggio)})` : ''; return `<span><strong>📍 ${escapeHtml(l.nome_luogo || 'Tappa')}:</strong> ${renderStars(l.rating_luogo || 3)} <BR>🏕️ ${campeggioNome} ${renderStars(l.rating_campeggio || 3)}</span>`; }).join('<br>') : `Rating ${renderStars(tripItem.rating_luogo || 3)} | 🏕️ ${renderStars(tripItem.rating_campeggio || 3)}`;
+		  const imageHtml = tripItem.foto_copertina ? `<img src="${tripItem.foto_copertina}" style="width:100%; height:180px; object-fit:cover; border-radius:6px; margin-bottom:8px;">` : '';
+		  const utenteAutore = ownerName || tripItem.autore_email || "Utente Anonimo";
+		  const TimeCreazione = tripItem.creato_il ? tripItem.creato_il.slice(0, 10) : '';
+		  let html = `<div class="calendar-tooltip" style="box-shadow: none; padding: 4px;">${imageHtml}<h4>📍 ${escapeHtml(tripItem.destinazione)}</h4><p style="color: #38bdf8; font-size: 12px;">👤 <strong>Caricato da:</strong> ${escapeHtml(utenteAutore)}</p><p style="color: #38bdf8; font-size: 12px;">⏳ <strong>Creato il:</strong> ${escapeHtml(TimeCreazione)}</p>`;
+		  if (isOwner) html += `<p font-size: 12px;>📅 <strong>Date:</strong> ${formatDate(tripItem.data_partenza)} - ${formatDate(tripItem.data_arrivo)} <strong>(${notti} notti)</strong></p>`;
+		  if (tripItem.note_viaggio || tripItem.note) html += `<p font-size: 12px;>📝 <strong>Note Viaggio:</strong> ${escapeHtml(tripItem.note_viaggio || tripItem.note)}</p>`;
+		  html += `<p>---------------------------------------------------------------------------<br></p>`;
+		  if ((tripItem.luoghi || []).length > 0) html += `<p font-size: 12px;>📌 <strong>Luoghi:</strong><BR>- ${tripItem.luoghi.map(l => escapeHtml(l.nome_luogo)).join('<BR>- ')}</p>`;
+		  if ((tripItem.luoghi || []).length > 0) { const noteLuoghi = tripItem.luoghi.filter(l => l.note_luogo && l.note_luogo.trim() !== '').map(l => `<span>- ${escapeHtml(l.nome_luogo || 'Luogo')}:</span> ${escapeHtml(l.note_luogo)}`); if (noteLuoghi.length > 0) html += `<p font-size: 12px;>📝 <strong>Note Luoghi:</strong><br><span>${noteLuoghi.join('<br>')}</span></p>`; }
+		  html += `<p>⭐ <strong>Valutazioni:</strong><br>${ratingsText}</p><p>---------------------------------------------------------------------------<br></p>`;
+		  if (isOwner) html += `<p>🛣️ <strong>Chilometri:</strong> ${tripItem.chilometri} km</p><p>🏕️ <strong>Camping Totale:</strong> € ${camping.toFixed(2)}</p><p>💰 <strong>Costi Extra:</strong> € ${extraLuoghi.toFixed(2)}</p><p>💶 <strong>Pedaggi:</strong> € ${pedaggi.toFixed(2)}</p><p>⛽ <strong>Carburante:</strong> € ${carburante.toFixed(2)}</p><p style="margin-top:6px; border-top:1px solid #334155; padding-top:4px;"><strong>TOTALE SPESO: € ${totale.toFixed(2)}</strong></p>`;
+		  html += `</div>`; return html;
+    }
+
+    function showTripTooltip(tripItem, parentElement, event) {
+      if (event) event.stopPropagation();
+      document.querySelectorAll('.map-full-overlay').forEach(el => el.remove());
+      const fullOverlay = document.createElement('div'); fullOverlay.className = 'map-full-overlay';
+      fullOverlay.innerHTML = `<div class="map-full-overlay-content"><button class="map-full-overlay-close" title="Chiudi">&times;</button>${getTripTooltipHTML(tripItem)}</div>`;
+      fullOverlay.querySelector('.map-full-overlay-close').addEventListener('click', () => fullOverlay.remove());
+      fullOverlay.addEventListener('click', (e) => { if (e.target === fullOverlay) fullOverlay.remove(); });
+      document.body.appendChild(fullOverlay);
+    }
+
+    // Modal Summary Costi
+    openSummaryBtn.addEventListener('click', () => { renderSummary(); summaryModal.classList.remove('hidden'); });
+    closeSummaryBtn.addEventListener('click', () => summaryModal.classList.add('hidden'));
+
+    function renderSummary() {
+      summaryTableBody.innerHTML = '';
+      let grandCamping = 0; let grandExtra = 0; let grandFuel = 0; let grandTolls = 0;
+      if (viaggiList.length === 0) { summaryTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8;">Nessun viaggio presente.</td></tr>`; } 
+      else {
+        viaggiList.forEach(item => {
+          const camping = getCampingTotalFromTrip(item); const pedaggi = Number(item.costo_pedaggi || 0);
+          const carburante = (item.rifornimenti || []).reduce((s, r) => s + Number(r.costo_sostenuto || 0), 0);
+          let extra = 0; (item.luoghi || []).forEach(l => { (l.costi_extra || []).forEach(c => extra += parseFloat(c.valore) || 0); });
+          const totale = camping + pedaggi + carburante + extra;
+          grandCamping += camping; grandExtra += extra; grandFuel += carburante; grandTolls += pedaggi;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td><strong>${escapeHtml(item.destinazione)}</strong></td><td>€ ${camping.toFixed(2)}</td><td style="color: #8b5cf6; font-weight: bold; ${extra > 0 ? 'cursor: pointer; text-decoration: underline;' : ''}" class="${extra > 0 ? 'summary-extra-click' : ''}">€ ${extra.toFixed(2)}</td><td style="color: #0284c7; font-weight: bold; ${carburante > 0 ? 'cursor: pointer; text-decoration: underline;' : ''}" class="${carburante > 0 ? 'summary-fuel-click' : ''}">€ ${carburante.toFixed(2)}</td><td>€ ${pedaggi.toFixed(2)}</td><td><strong style="color: #0369a1;">€ ${totale.toFixed(2)}</strong></td>`;
+          if (extra > 0) tr.querySelector('.summary-extra-click')?.addEventListener('click', () => openExtraDetailModal(item));
+          if (carburante > 0) tr.querySelector('.summary-fuel-click')?.addEventListener('click', () => openFuelDetailModal(item));
+          summaryTableBody.appendChild(tr);
+        });
+      }
+      summaryTotalCamping.textContent = `€ ${grandCamping.toFixed(2)}`; summaryTotalExtra.textContent = `€ ${grandExtra.toFixed(2)}`;
+      summaryTotalFuel.textContent = `€ ${grandFuel.toFixed(2)}`; summaryTotalTolls.textContent = `€ ${grandTolls.toFixed(2)}`;
+      summaryGrandTotal.textContent = `€ ${(grandCamping + grandExtra + grandFuel + grandTolls).toFixed(2)}`;
+    }
+
+    closeExtraDetailBtn.addEventListener('click', () => extraDetailModal.classList.add('hidden'));
+    closeFuelDetailBtn.addEventListener('click', () => fuelDetailModal.classList.add('hidden'));
+
+    function openExtraDetailModal(tripItem) {
+      extraDetailTitle.textContent = `🔎 Dettaglio Costi Extra - ${tripItem.destinazione}`; extraDetailTableBody.innerHTML = '';
+      const allExtra = []; (tripItem.luoghi || []).forEach(l => { (l.costi_extra || []).forEach(c => { allExtra.push({ valore: parseFloat(c.valore) || 0, categoria: c.categoria || '-', nome: c.nome || '-', luogo: c.luogo || l.nome_luogo || '-', note: c.note || '-' }); }); });
+      if (allExtra.length === 0) extraDetailTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Nessun costo extra inserito.</td></tr>`;
+      else allExtra.forEach(c => { const tr = document.createElement('tr'); tr.innerHTML = `<td><strong>€ ${c.valore.toFixed(2)}</strong></td><td>${escapeHtml(c.categoria)}</td><td>${escapeHtml(c.nome)}</td><td>${escapeHtml(c.luogo)}</td><td>${escapeHtml(c.note)}</td>`; extraDetailTableBody.appendChild(tr); });
+      extraDetailModal.classList.remove('hidden');
+    }
+
+    function openFuelDetailModal(tripItem) {
+      fuelDetailTitle.textContent = `⛽ Dettaglio Carburante - ${tripItem.destinazione}`; fuelDetailTableBody.innerHTML = '';
+      const rifList = tripItem.rifornimenti || [];
+      if (rifList.length === 0) fuelDetailTableBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Nessun rifornimento inserito.</td></tr>`;
+      else rifList.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${formatDate(r.data_rifornimento)}</td><td><strong>€ ${parseFloat(r.costo_sostenuto || 0).toFixed(2)}</strong></td><td>${parseFloat(r.litri || 0).toFixed(2)} L</td>`; fuelDetailTableBody.appendChild(tr); });
+      fuelDetailModal.classList.remove('hidden');
+    }
+
+    // Modal Calendario
+    openCalendarBtn.addEventListener('click', () => { currentCalendarDate = new Date(); renderCalendar(); calendarModal.classList.remove('hidden'); });
+    closeCalendarBtn.addEventListener('click', () => calendarModal.classList.add('hidden'));
+    prevMonthBtn.addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); });
+    nextMonthBtn.addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); });
+    prevYearBtn.addEventListener('click', () => { currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() - 1); renderCalendar(); });
+    nextYearBtn.addEventListener('click', () => { currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() + 1); renderCalendar(); });
+
+    function renderCalendar() {
+      const year = currentCalendarDate.getFullYear(); const month = currentCalendarDate.getMonth();
+      const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+      calendarMonthYear.textContent = `${monthNames[month]} ${year}`;
+      calendarDaysContainer.innerHTML = '';
+      const firstDayOfMonth = new Date(year, month, 1); const lastDayOfMonth = new Date(year, month + 1, 0);
+      let startDayOfWeek = firstDayOfMonth.getDay() - 1; if (startDayOfWeek === -1) startDayOfWeek = 6; 
+      const totalDays = lastDayOfMonth.getDate();
+      for (let i = 0; i < startDayOfWeek; i++) { const emptyCell = document.createElement('div'); emptyCell.className = 'calendar-day'; emptyCell.style.background = '#f8fafc'; emptyCell.style.borderColor = '#f1f5f9'; calendarDaysContainer.appendChild(emptyCell); }
+      for (let day = 1; day <= totalDays; day++) {
+        const dayCell = document.createElement('div'); dayCell.className = 'calendar-day';
+        const currentDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const matchingTrips = viaggiList.filter(item => item.data_partenza && item.data_arrivo && currentDateStr >= item.data_partenza && currentDateStr <= item.data_arrivo);
+        const dayNumSpan = document.createElement('span'); dayNumSpan.className = 'day-num'; dayNumSpan.textContent = day; dayCell.appendChild(dayNumSpan);
+        if (matchingTrips.length > 0) {
+          dayCell.classList.add('has-trip');
+          const primaryTrip = matchingTrips[0];
+          const tripIndex = viaggiList.findIndex(v => v.id === primaryTrip.id);
+          const colorConfig = TRIP_COLORS[(tripIndex >= 0 ? tripIndex : 0) % TRIP_COLORS.length];
+          dayCell.style.backgroundColor = colorConfig.bg; dayCell.style.borderColor = colorConfig.border; dayCell.style.color = colorConfig.text;
+          matchingTrips.forEach(trip => { const initialSpan = document.createElement('span'); initialSpan.className = 'trip-initial'; initialSpan.style.backgroundColor = colorConfig.border; initialSpan.style.color = '#ffffff'; initialSpan.textContent = trip.destinazione ? trip.destinazione.slice(0, 2) : 'VI'; dayCell.appendChild(initialSpan); });
+          dayCell.addEventListener('click', (e) => showTripTooltip(primaryTrip, dayCell, e));
+        }
+        calendarDaysContainer.appendChild(dayCell);
+      }
+    }
+
+    // Modal Mappa
+    openMapBtn.addEventListener('click', () => { mapModal.classList.remove('hidden'); setTimeout(initAndRenderMap, 200); });
+    closeMapBtn.addEventListener('click', () => mapModal.classList.add('hidden'));
+
+    async function initAndRenderMap() {
+      if (!map) { map = L.map('map-container').setView([41.9028, 12.5040], 6); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map); }
+      if (markersGroup) markersGroup.clearLayers(); else markersGroup = L.layerGroup().addTo(map);
+      try {
+        const { data: settingsData } = await supabaseClient.from('camper_settings').select('user_id, nome_utente');
+        const usersMap = {}; (settingsData || []).forEach(s => { if (s.user_id && s.nome_utente) usersMap[s.user_id] = s.nome_utente; });
+        const { data: trips } = await supabaseClient.from('viaggi').select('*');
+        if (!trips || trips.length === 0) return;
+        for (const trip of trips) {
+          const ownerName = usersMap[trip.user_id] || trip.autore_email || "Utente Anonimo";
+          const luoghi = trip.luoghi || []; const latLngsForTrip = [];
+          for (let index = 0; index < luoghi.length; index++) {
+            const luogo = luoghi[index]; const query = luogo.nome_luogo || luogo.viaggio_destinazione || trip.destinazione;
+            if (!query) continue;
+            try {
+              const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+              const results = await response.json();
+              if (results && results.length > 0) {
+                const latLng = [parseFloat(results[0].lat), parseFloat(results[0].lon)]; latLngsForTrip.push(latLng);
+                const customIcon = L.divIcon({ className: 'custom-flag-marker', html: `<div style="position: relative; width: 30px; height: 36px; display: flex; align-items: flex-start; justify-content: flex-start;"><div style="width: 3px; height: 36px; background-color: #333; position: absolute; left: 4px; top: 0; border-radius: 1px;"></div><div style="position: absolute; left: 7px; top: 2px; background-color: #dc2626; color: white; width: 22px; height: 18px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div></div>`, iconSize: [30, 36], iconAnchor: [4, 36] });
+                const marker = L.marker(latLng, { icon: customIcon });
+                marker.on('click', () => {
+                  const fullOverlay = document.createElement('div'); fullOverlay.className = 'map-full-overlay';
+                  fullOverlay.innerHTML = `<div class="map-full-overlay-content"><button class="map-full-overlay-close" title="Chiudi">&times;</button>${getMapTooltipHTML(trip, currentUser, ownerName)}</div>`;
+                  fullOverlay.querySelector('.map-full-overlay-close').addEventListener('click', () => fullOverlay.remove());
+                  fullOverlay.addEventListener('click', (e) => { if (e.target === fullOverlay) fullOverlay.remove(); });
+                  document.body.appendChild(fullOverlay);
+                });
+                markersGroup.addLayer(marker);
+              }
+            } catch (geoErr) { console.error("Errore geocodifica:", geoErr); }
+          }
+          if (latLngsForTrip.length > 1) markersGroup.addLayer(L.polyline(latLngsForTrip, { color: '#dc2626', weight: 3, opacity: 0.8, dashArray: '5, 5' }));
+        }
+        if (markersGroup.getLayers().length > 0) { map.fitBounds(markersGroup.getBounds().pad(0.2)); if (map.getZoom() > 6) map.setZoom(6); }
+      } catch (err) { console.error("Errore nel caricamento della mappa:", err); }
+    }
+  </script>
+<div style="width: 100%; text-align: center; padding: 10px; box-sizing: border-box;">
+  <img src="https://apenno75.github.io/Gestione-viaggi/4ASSI-V2.jpg" alt="Schema 4 Assi" style="max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 8px; display: inline-block;">
+  <p style="margin-top: 8px; font-size: 0.9rem; color: #64748b;">Ideato e realizzato da: Andrea</p>
+</div>  
+</body>
+
+</html>
