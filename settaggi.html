@@ -256,8 +256,15 @@
     function handleUrlParams() {
       const params = new URLSearchParams(window.location.search);
       const open = params.get('open');
+      if (!open) return;
       if (open === 'settings') openSettingsBtn.click();
       if (open === 'campers') openAllCampersBtn.click();
+      // Rimuove il parametro dall'URL: evita che un successivo evento
+      // onAuthStateChange (es. al ritorno sulla scheda) riapra la modale.
+      params.delete('open');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
     }
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
