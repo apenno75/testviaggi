@@ -162,7 +162,7 @@
         <div class="flex flex-mobile-col" style="margin-top: 12px; gap: 10px;">
           <div style="flex: 2;">
             <label for="note_viaggio">Note Generali Viaggio</label>
-            <textarea id="note_viaggio" rows="4" placeholder="Note generali del viaggio..."></textarea>
+            <textarea id="note_viaggio" rows="2" placeholder="Note generali del viaggio..."></textarea>
           </div>
           <div style="flex: 1;">
             <label for="foto_copertina_input">Foto Copertina Viaggio</label>
@@ -745,7 +745,7 @@
             <div style="flex: 1;"><label style="font-size: 12px;">Rating Campeggio</label><select class="luogo-rating-campeggio-input"><option value="5" ${l.rating_campeggio == 5 ? 'selected' : ''}>⭐⭐⭐⭐⭐</option><option value="4" ${l.rating_campeggio == 4 ? 'selected' : ''}>⭐⭐⭐⭐</option><option value="3" ${l.rating_campeggio == 3 ? 'selected' : ''}>⭐⭐⭐</option><option value="2" ${l.rating_campeggio == 2 ? 'selected' : ''}>⭐⭐</option><option value="1" ${l.rating_campeggio == 1 ? 'selected' : ''}>⭐</option></select></div>
           </div>
           <div style="font-size: 12px; text-align: right; color: #16a34a; font-weight: bold; margin-bottom: 8px;">Totale Camping Luogo: € <span>${subtotalCampingLuogo}</span></div>
-          <div style="margin-top: 10px;"><label style="font-size: 12px;">Note del Luogo</label><textarea class="luogo-note-input" rows="2">${escapeHtml(l.note_luogo)}</textarea></div>
+          <div style="margin-top: 10px;"><label style="font-size: 12px;">Note del Luogo</label><textarea class="luogo-note-input" rows="2" placeholder="Note del luogo e/o campeggio...">${escapeHtml(l.note_luogo)}</textarea></div>
           <label style="font-size: 12px; color: #0284c7; font-weight: bold; margin-top: 8px; display: block;">💰 Tabella Costi Extra del Luogo</label>
           <div class="table-container">
             <table style="margin-top: 4px; font-size: 12px; background: #fff; min-width: 600px;">
