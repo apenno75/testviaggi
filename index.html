@@ -945,7 +945,14 @@
       if (isNewTrip) {
         try {
           emailjs.init("V8kcX2zTDljSVfrW8");
-          await emailjs.send('service_t75oqm4', 'template_yerajch', { to_email: "apenno75@gmail.com", destinazione: destinazioneInput.value, note: noteViaggioInput.value, data_partenza: dataPartenzaInput.value, data_arrivo: dataArrivoInput.value, creato_da: currentUser.email, luoghi: tempLuoghi.map(l => l.nome_luogo).filter(Boolean).join(', ') || 'Nessun luogo' });
+          const { data: allProfiles } = await supabaseClient.from('profiles').select('email');
+          const destinatariEmail = (allProfiles || []).map(p => p.email).filter(Boolean);
+          for (const destEmail of destinatariEmail) {
+            try {
+              await emailjs.send('service_t75oqm4', 'template_yerajch', { to_email: destEmail, destinazione: destinazioneInput.value, note: noteViaggioInput.value, data_partenza: dataPartenzaInput.value, data_arrivo: dataArrivoInput.value, creato_da: currentUser.email, luoghi: tempLuoghi.map(l => l.nome_luogo).filter(Boolean).join(', ') || 'Nessun luogo' });
+              await new Promise(r => setTimeout(r, 600));
+            } catch (singleEmailErr) { console.error('Errore invio a', destEmail, singleEmailErr); }
+          }
         } catch (emailErr) { console.error(emailErr); }
       }
       alert('Viaggio salvato con successo!');
