@@ -329,26 +329,21 @@
   </div>
 
   <!-- Modale Dettaglio Carburante -->
-  <div id="carburante-detail-modal" class="modal-overlay hidden">
-    <div class="modal-content" style="max-width: 500px;">
+  <div id="carburante-detail-modal" class="modal-overlay hidden" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 650px;">
       <div class="flex-center">
         <h2 id="carburante-detail-title" style="margin:0; font-size: 18px;">⛽ Dettaglio Carburante</h2>
         <button id="close-carburante-detail-btn" class="btn-secondary btn-sm">Chiudi</button>
       </div>
       <div class="table-container" style="margin-top: 15px;">
         <table>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Litri</th>
-              <th>Costo (€)</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Data</th><th>Litri</th><th>Costo (€)</th></tr></thead>
           <tbody id="carburante-detail-table-body"></tbody>
         </table>
       </div>
     </div>
   </div>
+  
 
   <script>
     const { createClient } = window.supabase;
