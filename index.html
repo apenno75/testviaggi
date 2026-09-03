@@ -58,15 +58,11 @@
     }	
   </style>
   <script>
-    // Forza il ricalcolo dello zoom/viewport della WebView ad ogni caricamento pagina,
-    // per evitare che la scala venga ereditata in modo errato dalla pagina precedente.
     (function() {
       var LOCKED = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
       function resetViewportScale() {
         var vp = document.querySelector('meta[name="viewport"]');
         if (!vp) return;
-        // Cambiare davvero il valore (non riasserire lo stesso) forza la WebView
-        // a ricalcolare la scala invece di ignorare l'aggiornamento come no-op.
         vp.setAttribute('content', 'width=device-width, initial-scale=0.99, minimum-scale=0.99, maximum-scale=0.99, user-scalable=no');
         window.requestAnimationFrame(function() {
           vp.setAttribute('content', LOCKED);
@@ -381,7 +377,6 @@
     const carburanteDetailTableBody = document.getElementById('carburante-detail-table-body');
     document.getElementById('close-carburante-detail-btn').addEventListener('click', () => carburanteDetailModal.classList.add('hidden'));
 
-    // Routing verso le altre pagine
     document.getElementById('open-summary-btn').addEventListener('click', () => window.location.href = 'dashboard.html?open=summary');
     document.getElementById('open-calendar-btn').addEventListener('click', () => window.location.href = 'dashboard.html?open=calendar');
     document.getElementById('open-map-btn').addEventListener('click', () => window.location.href = 'dashboard.html?open=map');
@@ -432,7 +427,6 @@
     let tempLuoghi = [];
     let camperSettings = { consumo: 10.0, costoCarburante: 1.85, kmTotali: 0, kmDataValidita: null };
 
-    // Gestione visualizzazione modali/sezioni via parametro URL
     function handleUrlParams() {
       const params = new URLSearchParams(window.location.search);
       const open = params.get('open');
@@ -440,8 +434,6 @@
       if (open === 'new') openNewViaggioBtn.click();
       if (open === 'list') openViaggiBtn.click();
       if (open === 'luoghi') openAllLuoghiBtn.click();
-      // Rimuove il parametro dall'URL: evita che un successivo evento
-      // onAuthStateChange (es. al ritorno sulla scheda) riapra la modale.
       params.delete('open');
       const newSearch = params.toString();
       const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
@@ -866,7 +858,7 @@
 	  if (invalidRefuel) { alert("Attenzione: le date dei rifornimenti devono essere comprese nel viaggio."); return; }
 
       syncLuoghiDataFromDOM();
-	  // --- INIZIO NUOVO CONTROLLO BLOCCANTE ---
+
       if (tempLuoghi.length === 0) {
         alert("Attenzione: devi inserire almeno un luogo per poter salvare il viaggio.");
         return;
@@ -877,7 +869,31 @@
         alert("Attenzione: inserire il Nome Camping / Struttura per il luogo inserito.");
         return;
       }	  
-      // --- FINE NUOVO CONTROLLO BLOCCANTE ---	  
+
+      // --- CONTROLLI BLOCCANTI SULLE NOTTI DEI LUOGHI ---
+      const cardsLuoghi = luoghiListContainer.querySelectorAll('.luogo-card');
+      let nottiCompilate = true;
+      cardsLuoghi.forEach(card => {
+        const val = card.querySelector('.luogo-notti-input')?.value;
+        if (val === undefined || val === null || val.trim() === '') {
+          nottiCompilate = false;
+        }
+      });
+
+      if (!nottiCompilate) {
+        alert("Attenzione: compilare il campo Notti per ciascun luogo inserito.");
+        return;
+      }
+
+      const sommaNottiLuoghi = tempLuoghi.reduce((sum, l) => sum + (parseInt(l.notti) || 0), 0);
+      const totNottiViaggio = parseInt(totaleNottiViaggioInput.value) || 0;
+
+      if (sommaNottiLuoghi !== totNottiViaggio) {
+        alert(`Attenzione: la somma delle notti dei luoghi (${sommaNottiLuoghi}) deve essere uguale al Tot. Notti Viaggio (${totNottiViaggio}).`);
+        return;
+      }
+      // --- FINE CONTROLLI BLOCCANTI SULLE NOTTI ---
+
       const id = viaggioIdInput.value;
       const newKm = parseFloat(chilometriInput.value) || 0;
       let kmDiff = id ? (newKm - (parseFloat(viaggiList.find(x => x.id == id)?.chilometri) || 0)) : newKm;
