@@ -894,6 +894,24 @@
       }
       // --- FINE CONTROLLI BLOCCANTI SULLE NOTTI ---
 
+      // --- CONTROLLO BLOCCANTE SUI COSTI EXTRA ---
+      let extraCostiCompilati = true;
+      tempLuoghi.forEach(l => {
+        (l.costi_extra || []).forEach(c => {
+          const val = parseFloat(c.valore);
+          const nome = (c.nome || '').trim();
+          if (isNaN(val) || val <= 0 || !nome) {
+            extraCostiCompilati = false;
+          }
+        });
+      });
+
+      if (!extraCostiCompilati) {
+        alert("Attenzione: per ogni costo extra aggiunto nella tabella, assicurarsi di aver compilato sia il Costo (€) (maggiore di zero) che il Nome.");
+        return;
+      }
+      // --- FINE CONTROLLO COSTI EXTRA ---
+
       const id = viaggioIdInput.value;
       const newKm = parseFloat(chilometriInput.value) || 0;
       let kmDiff = id ? (newKm - (parseFloat(viaggiList.find(x => x.id == id)?.chilometri) || 0)) : newKm;
