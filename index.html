@@ -859,11 +859,25 @@
       e.preventDefault();
       const startDate = new Date(dataPartenzaInput.value); const endDate = new Date(dataArrivoInput.value);
       startDate.setHours(0,0,0,0); endDate.setHours(0,0,0,0);
-      if (startDate > endDate) { alert("Attenzione: la data di partenza non può essere successiva alla data di ritorno."); return; }
+      
+	  if (startDate > endDate) { alert("Attenzione: la data di partenza non può essere successiva alla data di ritorno."); return; }
       const invalidRefuel = tempRefuelings.find(r => { const refDate = new Date(r.data_rifornimento); refDate.setHours(0,0,0,0); return refDate < startDate || refDate > endDate; });
-      if (invalidRefuel) { alert("Attenzione: le date dei rifornimenti devono essere comprese nel viaggio."); return; }
+      
+	  if (invalidRefuel) { alert("Attenzione: le date dei rifornimenti devono essere comprese nel viaggio."); return; }
 
       syncLuoghiDataFromDOM();
+	  // --- INIZIO NUOVO CONTROLLO BLOCCANTE ---
+      if (tempLuoghi.length === 0) {
+        alert("Attenzione: devi inserire almeno un luogo per poter salvare il viaggio.");
+        return;
+      }
+	  
+	  const hasEmptyCamping = tempLuoghi.some(l => !l.nome_campeggio || !l.nome_campeggio.trim());
+      if (hasEmptyCamping) {
+        alert("Attenzione: inserire il Nome Camping / Struttura per il luogo inserito.");
+        return;
+      }	  
+      // --- FINE NUOVO CONTROLLO BLOCCANTE ---	  
       const id = viaggioIdInput.value;
       const newKm = parseFloat(chilometriInput.value) || 0;
       let kmDiff = id ? (newKm - (parseFloat(viaggiList.find(x => x.id == id)?.chilometri) || 0)) : newKm;
